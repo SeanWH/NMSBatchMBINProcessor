@@ -117,11 +117,11 @@ var buildMODPak = (_completedFiles)=>{
     }
     setTimeout(()=>{
       var successMsg = `Patching completed. ${changes} keys changed across ${_completedFiles.length} files.`;
-      exc(`.\\bin\\psarc.exe create -a -y --zlib --inputfile=./files.txt -o _MOD.TerrainTweaker-${Date.now()}.pak`).then(result => {
+      exc(`.\\bin\\psarc.exe create -a -y --zlib --inputfile=./files.txt -o _MOD.BMP-${Date.now()}.pak`).then(result => {
         finish = true;
         console.log(successMsg);
         if (!argv.xml) {
-          console.log(`MBINCompiler stats: ${compiled}/${uncompilable}`);
+          console.log(`MBINCompiler stats: ${compilable}/${uncompilable}`);
           console.log(`MBINCompiler1131.exe: ${mbin1131}`);
           console.log(`MBINCompiler1130.exe: ${mbin1130}`);
           console.log(`MBINCompilerFallback.exe: ${mbinLegacy}`);
@@ -429,7 +429,7 @@ var deleteCache = ()=>{
   var dirs = [];
   fs.readdir('./', (err, dir)=>{
     _.each(dir, (_dir)=>{
-      if (_dir !== 'node_modules' && _dir !== 'bin' && _dir !== 'COPYING' && _dir.indexOf('.') === -1  || _dir.indexOf('.MBIN') !== -1  || _dir.indexOf('.exml') !== -1) {
+      if (_dir !== 'node_modules' && _dir !== 'bin' && _dir !== 'presets' && _dir !== 'COPYING' && _dir.indexOf('.') === -1  || _dir.indexOf('.MBIN') !== -1  || _dir.indexOf('.exml') !== -1) {
         dirs.push(_dir);
       }
     });
@@ -441,7 +441,7 @@ var deleteCache = ()=>{
             throw err;
           }
           if (key === dirs.length - 1) {
-            setTimeout(()=>unpackFiles(), 1000);
+            setTimeout(()=>unpackFiles(), 1500);
           }
         });
       });
