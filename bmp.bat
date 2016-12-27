@@ -1,0 +1,1 @@
+start node.exe --max_old_space_size=32384 bmp.js
