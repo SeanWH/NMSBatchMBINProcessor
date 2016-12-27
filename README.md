@@ -12,14 +12,24 @@ This tool allows you to batch extract, decrypt, edit, and repackage files for th
 
 The config file is Settings.ini. Inside the brackets [], the script will search the decompiled MBIN XML files for a Filename property.
 
-The format:
+Specific format:
+```
 [TemplateName:PropertyToTarget]
 ChildPropertyName=ChildPropertyValue
+```
+
+Wildcard format:
+```
+[*:PropertyToTarget]
+ChildPropertyName=ChildPropertyValue
+```
+
+The "wildcard" format will target all templates.
 
 It will then apply the settings you specify inside its parent block provided the keys preceding the "=" exist.
 
 #### Available options
 
-  * --mt - Enable multi-threading of MBINCompiler
+  * --mt - Enable multi-threading of MBINCompiler (Important! This option is very buggy unless used on small PAK files such as existing mods.)
   * --xml - Skip decompilation and update existing XML files
   * -h, --help - Display this information

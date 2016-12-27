@@ -1,6 +1,11 @@
+#### 1.0.2
+
+  * Fixed a bug causing the script to fail if "MBIN" is in the file path.
+  * Added support for wildcards in the template field. See readme for an example.
+
 #### 1.0.1
 
-  * Added an example mods and presets which increase grass draw distance and diversity.
+  * Added an example mod with presets which increase grass draw distance and diversity.
 
 #### 1.0.0
 

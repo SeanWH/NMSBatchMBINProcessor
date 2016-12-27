@@ -121,7 +121,7 @@ var buildMODPak = (_completedFiles)=>{
         finish = true;
         console.log(successMsg);
         if (!argv.xml) {
-          console.log(`MBINCompiler stats: ${compilable}/${uncompilable}`);
+          console.log(`MBINCompiler stats: ${compilable} succeeded, ${uncompilable} failed`);
           console.log(`MBINCompiler1131.exe: ${mbin1131}`);
           console.log(`MBINCompiler1130.exe: ${mbin1130}`);
           console.log(`MBINCompilerFallback.exe: ${mbinLegacy}`);
@@ -140,13 +140,18 @@ var buildMODPakOnce = _.once(buildMODPak);
 var handleCompleted = (builder, _completedFiles, file, k)=>{
   var checkNextCallArg = ()=>{
     if (k === _completedFiles.length - 1) {
-      buildMODPak(_completedFiles);
+      buildMODPakOnce(_completedFiles);
     } else {
       ++k;
       handleCompleted(builder, _completedFiles, _completedFiles[k], k);
     }
   };
-  var xml = builder.buildObject(file.data);
+  try {
+    var xml = builder.buildObject(file.data);  
+  } catch (e) {
+
+  }
+  
   fs.writeFile(file.xml, xml, {flag : 'w'}, (err, data)=>{
     if (err) console.log('ERR-B: ', err);
     var mbinFileName = file.mbin;
@@ -197,14 +202,9 @@ var eachRecursive = (result, obj, recursion=0, setting, settingKey, settings, xm
   checkNextCallArg();
   for (var k in obj) {
     if (_.isObject(obj[k]) && obj[k] !== null) {
-      if (obj.hasOwnProperty('$') && obj.$.hasOwnProperty('template') && recursion === 0) {
+      if (obj.hasOwnProperty('$') && obj.$.hasOwnProperty('template')) {
         template = obj.$.template;
-        if (settingId[0] !== obj.$.template) {
-          return;
-        }
-        // Template specific changes go here, otherwise recursively iterate the object.
-        // GcExternalObjectList ('Terrain Tweaker' changes)
-        if (obj.$.template === 'GcExternalObjectList') {
+        if (settingId[0] === obj.$.template) {
           for (var i = result.Data.Property[0].Property.length - 1; i >= 0; i--) {
             _.each(result.Data.Property[0].Property[i].Property, (val, key)=>{
               _.each(val.Property, (val1, key1)=>{
@@ -223,27 +223,41 @@ var eachRecursive = (result, obj, recursion=0, setting, settingKey, settings, xm
                     });
                   }
                 } catch (e) {}
-              })
+              });
             });
-          }  
-          return;
-        }
-      } else if (obj.hasOwnProperty('$') && obj.$.hasOwnProperty('name') && obj.$.name.indexOf(settingId[1]) !== -1) {
-        try {
+          }   
+        } else if (settingId[0] === '*') {
+          var recurseCollections = (object, prop=null, run=0)=>{
+            var nextRun = run + 1;
+            _.each(object, (value, key)=>{
+              try {
+                if (key === 'Property') {
+                  _.each(object[key], (aVal, aKey)=>{
+                    recurseCollections(object[key][aKey], prop, nextRun);
+                  });
+                } else {
+                  try {
+                    if (object[key].name === prop.key && (settingId[0] === '*' || settingId[0] === template)) {
+                      object[key].value = prop.val;
+                      ++changes;
+                      completedFiles.push({
+                        mbin: `${xmlPath.split('.exml')[0]}.MBIN`,
+                        xml: xmlPath,
+                        data: result
+                      });
+                    }
+                  } catch (e) {}
+                }
+              } catch (e) {}
+            });
+          };
           _.each(setting.props, (prop)=>{
-            _.each(obj[k], (__obj, __key)=>{
-              if (__obj.$.name === prop.key) { 
-                __obj[__key].value = prop.val;
-                ++changes;
-                completedFiles.push(`${xmlPath.split('.exml')[0]}.MBIN`);
-              }
-            })
+            recurseCollections(obj, prop);
           });
-          return;
-        } catch (e) {}
+          ++recursion;
+          eachRecursive(result, obj[k], recursion, setting, settingKey, xmlPath, xmlKey, xmlFilesLen, template);
+        }
       }
-      ++recursion
-      eachRecursive(result, obj[k], recursion, setting, settingKey, xmlPath, xmlKey, xmlFilesLen, template)
       return;
     } else {
       return;
@@ -276,10 +290,10 @@ var decompileMBIN = (__files, file, fileKey, fileLen, multiThreaded=false)=>{
   var checkNextCallArg = ()=>{
     if ((compilable + uncompilable) >= FILES.length || fileKey === fileLen - 1) {
       xmlFiles = _.uniq(xmlFiles);
-      if (multiThreaded) {
-        console.log('Please wait...');
-      }
-      setTimeout(()=>updateXMLOnce(xmlFiles), multiThreaded ? FILES.length * 10 : 3000);
+
+      console.log('Please wait...');
+      
+      setTimeout(()=>updateXMLOnce(xmlFiles), multiThreaded ? FILES.length * 10 : FILES.length * 2);
     }
   };
   if (!multiThreaded) {
@@ -293,7 +307,7 @@ var decompileMBIN = (__files, file, fileKey, fileLen, multiThreaded=false)=>{
   };
   var _next = _.once(next);
   var iterated = false;
-  exc(`.\\bin\\MBINCompiler1131.exe ${file} ${file.split('MBIN')[0]}EXML`).then(result => {
+  exc(`.\\bin\\MBINCompiler1131.exe ${file} ${file.split('.MBIN')[0]}.EXML`).then(result => {
     try {
       var xmlPath = result.split('XML data written to "')[1].split('"')[0];
       var refPath = _.findIndex(xmlFiles, xmlPath);
@@ -314,7 +328,7 @@ var decompileMBIN = (__files, file, fileKey, fileLen, multiThreaded=false)=>{
       checkNextCallArg();
       return;
     }
-    exc(`.\\bin\\MBINCompiler1130.exe ${file} ${file.split('MBIN')[0]}EXML`).then(result => {
+    exc(`.\\bin\\MBINCompiler1130.exe ${file} ${file.split('.MBIN')[0]}.EXML`).then(result => {
       if (!iterated) {
         try {
           var xmlPath = result.split('XML data written to "')[1].split('"')[0];
@@ -333,7 +347,7 @@ var decompileMBIN = (__files, file, fileKey, fileLen, multiThreaded=false)=>{
         checkNextCallArg();
       }
     }).catch(()=>{
-      exc(`.\\bin\\MBINCompilerFallback.exe ${file} ${file.split('MBIN')[0]}EXML`).then(result => {
+      exc(`.\\bin\\MBINCompilerFallback.exe ${file} ${file.split('.MBIN')[0]}.EXML`).then(result => {
         if (!iterated) {
           try {
             var xmlPath = result.split('XML data written to "')[1].split('"')[0];
