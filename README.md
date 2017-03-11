@@ -2,6 +2,8 @@
 
 This tool allows you to batch extract, decrypt, edit, and repackage files for the game No Man's Sky using MBINCompiler and PSARC.
 
+Special thanks to monkeyman192, theFisher86, and those helping them for making tools like this possible.
+
 #### How to use it
 
 * Extract the archive into a directory.
@@ -12,24 +14,14 @@ This tool allows you to batch extract, decrypt, edit, and repackage files for th
 
 The config file is Settings.ini. Inside the brackets [], the script will search the decompiled MBIN XML files for a Filename property.
 
-Specific format:
-```
+The format:
 [TemplateName:PropertyToTarget]
 ChildPropertyName=ChildPropertyValue
-```
-
-Wildcard format:
-```
-[*:PropertyToTarget]
-ChildPropertyName=ChildPropertyValue
-```
-
-The "wildcard" format will target all templates.
 
 It will then apply the settings you specify inside its parent block provided the keys preceding the "=" exist.
 
 #### Available options
 
-  * --mt - Enable multi-threading of MBINCompiler (Important! This option is very buggy unless used on small PAK files such as existing mods.)
+  * --mt - Enable multi-threading of MBINCompiler
   * --xml - Skip decompilation and update existing XML files
   * -h, --help - Display this information

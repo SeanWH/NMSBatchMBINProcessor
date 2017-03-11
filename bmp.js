@@ -95,6 +95,7 @@ var compilable = 0;
 var uncompilable = 0;
 var changes = 0;
 var xmlIterations = 0;
+var mbin1300 = 0;
 var mbin1131 = 0;
 var mbin1130 = 0;
 var mbinLegacy = 0;
@@ -122,6 +123,7 @@ var buildMODPak = (_completedFiles)=>{
         console.log(successMsg);
         if (!argv.xml) {
           console.log(`MBINCompiler stats: ${compilable} succeeded, ${uncompilable} failed`);
+          console.log(`MBINCompiler1300.exe: ${mbin1300}`);
           console.log(`MBINCompiler1131.exe: ${mbin1131}`);
           console.log(`MBINCompiler1130.exe: ${mbin1130}`);
           console.log(`MBINCompilerFallback.exe: ${mbinLegacy}`);
@@ -155,20 +157,25 @@ var handleCompleted = (builder, _completedFiles, file, k)=>{
   fs.writeFile(file.xml, xml, {flag : 'w'}, (err, data)=>{
     if (err) console.log('ERR-B: ', err);
     var mbinFileName = file.mbin;
-    exc(`.\\bin\\MBINCompiler1131.exe ${file.xml} ${mbinFileName}`).then(result => {
+    exc(`.\\bin\\MBINCompiler1300.exe ${file.xml} ${mbinFileName}`).then(result => {
       console.log('Writing new MBIN: ', `${mbinFileName}`);
       checkNextCallArg();
     }).catch((e)=>{
-      exc(`.\\bin\\MBINCompiler1130.exe ${file.xml} ${mbinFileName}`).then(result => {
-        console.log(`Writing new MBIN using fallback (1130): ${mbinFileName}`);
+      exc(`.\\bin\\MBINCompiler1131.exe ${file.xml} ${mbinFileName}`).then(result => {
+        console.log('Writing new MBIN: ', `${mbinFileName}`);
         checkNextCallArg();
       }).catch((e)=>{
-        exc(`.\\bin\\MBINCompilerFallback.exe ${file.xml} ${mbinFileName}`).then(result => {
-          console.log(`Writing new MBIN using fallback (legacy): ${mbinFileName}`);
+        exc(`.\\bin\\MBINCompiler1130.exe ${file.xml} ${mbinFileName}`).then(result => {
+          console.log(`Writing new MBIN using fallback (1130): ${mbinFileName}`);
           checkNextCallArg();
-        }).catch(()=>{
-          checkNextCallArg();
-          console.log(`Unable to recompile: ${mbinFileName}}`);
+        }).catch((e)=>{
+          exc(`.\\bin\\MBINCompilerFallback.exe ${file.xml} ${mbinFileName}`).then(result => {
+            console.log(`Writing new MBIN using fallback (legacy): ${mbinFileName}`);
+            checkNextCallArg();
+          }).catch(()=>{
+            checkNextCallArg();
+            console.log(`Unable to recompile: ${mbinFileName}}`);
+          });
         });
       });
     });
@@ -307,7 +314,7 @@ var decompileMBIN = (__files, file, fileKey, fileLen, multiThreaded=false)=>{
   };
   var _next = _.once(next);
   var iterated = false;
-  exc(`.\\bin\\MBINCompiler1131.exe ${file} ${file.split('.MBIN')[0]}.EXML`).then(result => {
+  exc(`.\\bin\\MBINCompiler1300.exe ${file} ${file.split('.MBIN')[0]}.EXML`).then(result => {
     try {
       var xmlPath = result.split('XML data written to "')[1].split('"')[0];
       var refPath = _.findIndex(xmlFiles, xmlPath);
@@ -315,7 +322,7 @@ var decompileMBIN = (__files, file, fileKey, fileLen, multiThreaded=false)=>{
         iterated = true;
         xmlFiles.push(xmlPath);
         ++compilable;
-        ++mbin1131;
+        ++mbin1300;
         console.log(`Decompiled MBIN (${compilable + uncompilable}/${fileLen}): ${file}`);
       }
     } catch (e) {}
@@ -324,30 +331,28 @@ var decompileMBIN = (__files, file, fileKey, fileLen, multiThreaded=false)=>{
     }
     _next();
   }).catch((e)=>{
-    if (typeof __files[fileKey] === 'undefined') {
-      checkNextCallArg();
-      return;
-    }
-    exc(`.\\bin\\MBINCompiler1130.exe ${file} ${file.split('.MBIN')[0]}.EXML`).then(result => {
-      if (!iterated) {
-        try {
-          var xmlPath = result.split('XML data written to "')[1].split('"')[0];
-          var refPath = _.findIndex(xmlFiles, xmlPath);
-          if (refPath === -1) {
-            iterated = true;
-            xmlFiles.push(xmlPath);
-            ++compilable;
-            ++mbin1130
-            console.log(`Decompiled MBIN using fallback (1130) (${compilable + uncompilable}/${fileLen}): ${file}`);
-          }
-        } catch (e) {}
-      }
-      _next();
+    exc(`.\\bin\\MBINCompiler1131.exe ${file} ${file.split('.MBIN')[0]}.EXML`).then(result => {
+      try {
+        var xmlPath = result.split('XML data written to "')[1].split('"')[0];
+        var refPath = _.findIndex(xmlFiles, xmlPath);
+        if (refPath === -1) {
+          iterated = true;
+          xmlFiles.push(xmlPath);
+          ++compilable;
+          ++mbin1131;
+          console.log(`Decompiled MBIN using fallback (1131) (${compilable + uncompilable}/${fileLen}): ${file}`);
+        }
+      } catch (e) {}
       if (multiThreaded) {
         checkNextCallArg();
       }
-    }).catch(()=>{
-      exc(`.\\bin\\MBINCompilerFallback.exe ${file} ${file.split('.MBIN')[0]}.EXML`).then(result => {
+      _next();
+    }).catch((e)=>{
+      if (typeof __files[fileKey] === 'undefined') {
+        checkNextCallArg();
+        return;
+      }
+      exc(`.\\bin\\MBINCompiler1130.exe ${file} ${file.split('.MBIN')[0]}.EXML`).then(result => {
         if (!iterated) {
           try {
             var xmlPath = result.split('XML data written to "')[1].split('"')[0];
@@ -356,8 +361,8 @@ var decompileMBIN = (__files, file, fileKey, fileLen, multiThreaded=false)=>{
               iterated = true;
               xmlFiles.push(xmlPath);
               ++compilable;
-              ++mbinLegacy;
-              console.log(`Decompiled MBIN using fallback (legacy) (${compilable + uncompilable}/${fileLen}): ${file}`);
+              ++mbin1130
+              console.log(`Decompiled MBIN using fallback (1130) (${compilable + uncompilable}/${fileLen}): ${file}`);
             }
           } catch (e) {}
         }
@@ -366,14 +371,34 @@ var decompileMBIN = (__files, file, fileKey, fileLen, multiThreaded=false)=>{
           checkNextCallArg();
         }
       }).catch(()=>{
-        console.log(`Unable to decompile MBIN (${compilable + uncompilable}/${fileLen}): ${file}`);
-        ++uncompilable;
-        if (!iterated) {
+        exc(`.\\bin\\MBINCompilerFallback.exe ${file} ${file.split('.MBIN')[0]}.EXML`).then(result => {
+          if (!iterated) {
+            try {
+              var xmlPath = result.split('XML data written to "')[1].split('"')[0];
+              var refPath = _.findIndex(xmlFiles, xmlPath);
+              if (refPath === -1) {
+                iterated = true;
+                xmlFiles.push(xmlPath);
+                ++compilable;
+                ++mbinLegacy;
+                console.log(`Decompiled MBIN using fallback (legacy) (${compilable + uncompilable}/${fileLen}): ${file}`);
+              }
+            } catch (e) {}
+          }
           _next();
-        }
-        if (multiThreaded) {
-          checkNextCallArg();
-        }
+          if (multiThreaded) {
+            checkNextCallArg();
+          }
+        }).catch(()=>{
+          console.log(`Unable to decompile MBIN (${compilable + uncompilable}/${fileLen}): ${file}`);
+          ++uncompilable;
+          if (!iterated) {
+            _next();
+          }
+          if (multiThreaded) {
+            checkNextCallArg();
+          }
+        });
       });
     });
   });
