@@ -95,7 +95,7 @@ var compilable = 0;
 var uncompilable = 0;
 var changes = 0;
 var xmlIterations = 0;
-var mbin1300 = 0;
+var mbin1200 = 0;
 var mbin1131 = 0;
 var mbin1130 = 0;
 var mbinLegacy = 0;
@@ -118,12 +118,12 @@ var buildMODPak = (_completedFiles)=>{
     }
     setTimeout(()=>{
       var successMsg = `Patching completed. ${changes} keys changed across ${_completedFiles.length} files.`;
-      exc(`.\\bin\\psarc.exe create -a -y --zlib --inputfile=./files.txt -o _MOD.BMP-${Date.now()}.pak`).then(result => {
+      exc(`.\\bin\\psarc.exe create -a -y --zlib --inputfile=./files.txt -o _MOD.BMP_${argv.name ? argv.name : Date.now()}.pak`).then(result => {
         finish = true;
         console.log(successMsg);
-        if (!argv.xml) {
+        if (!argv.xml && !argv.x) {
           console.log(`MBINCompiler stats: ${compilable} succeeded, ${uncompilable} failed`);
-          console.log(`MBINCompiler1300.exe: ${mbin1300}`);
+          console.log(`MBINCompiler1200.exe: ${mbin1200}`);
           console.log(`MBINCompiler1131.exe: ${mbin1131}`);
           console.log(`MBINCompiler1130.exe: ${mbin1130}`);
           console.log(`MBINCompilerFallback.exe: ${mbinLegacy}`);
@@ -153,11 +153,10 @@ var handleCompleted = (builder, _completedFiles, file, k)=>{
   } catch (e) {
 
   }
-  
   fs.writeFile(file.xml, xml, {flag : 'w'}, (err, data)=>{
     if (err) console.log('ERR-B: ', err);
     var mbinFileName = file.mbin;
-    exc(`.\\bin\\MBINCompiler1300.exe ${file.xml} ${mbinFileName}`).then(result => {
+    exc(`.\\bin\\MBINCompiler1200.exe ${file.xml} ${mbinFileName}`).then(result => {
       console.log('Writing new MBIN: ', `${mbinFileName}`);
       checkNextCallArg();
     }).catch((e)=>{
@@ -187,6 +186,7 @@ var writeOutXML = (result)=>{
  
   if (_completedFiles.length === 0) {
     console.log('No XML changes detected.');
+    return;
   }
  
   var builder = new xml2js.Builder();
@@ -206,11 +206,11 @@ var eachRecursive = (result, obj, recursion=0, setting, settingKey, settings, xm
     ++xmlIterations;
     console.log(`Checking XML file (${xmlIterations}/${xmlFilesLen}): ${xmlPath}`);
   }
-  checkNextCallArg();
   for (var k in obj) {
     if (_.isObject(obj[k]) && obj[k] !== null) {
       if (obj.hasOwnProperty('$') && obj.$.hasOwnProperty('template')) {
         template = obj.$.template;
+        let changed = null;
         if (settingId[0] === obj.$.template) {
           for (var i = result.Data.Property[0].Property.length - 1; i >= 0; i--) {
             _.each(result.Data.Property[0].Property[i].Property, (val, key)=>{
@@ -220,7 +220,7 @@ var eachRecursive = (result, obj, recursion=0, setting, settingKey, settings, xm
                     _.each(setting.props, (prop)=>{
                       if (val1.$.name === prop.key) {
                         result.Data.Property[0].Property[i].Property[key].Property[key1].$.value = prop.val;
-                        ++changes;
+                        changed = true;
                         completedFiles.push({
                           mbin: `${xmlPath.split('.exml')[0]}.MBIN`,
                           xml: xmlPath,
@@ -246,7 +246,7 @@ var eachRecursive = (result, obj, recursion=0, setting, settingKey, settings, xm
                   try {
                     if (object[key].name === prop.key && (settingId[0] === '*' || settingId[0] === template)) {
                       object[key].value = prop.val;
-                      ++changes;
+                      changed = true;
                       completedFiles.push({
                         mbin: `${xmlPath.split('.exml')[0]}.MBIN`,
                         xml: xmlPath,
@@ -264,7 +264,11 @@ var eachRecursive = (result, obj, recursion=0, setting, settingKey, settings, xm
           ++recursion;
           eachRecursive(result, obj[k], recursion, setting, settingKey, xmlPath, xmlKey, xmlFilesLen, template);
         }
+        if (changed) {
+          ++changes;
+        }
       }
+      checkNextCallArg();
       return;
     } else {
       return;
@@ -296,6 +300,9 @@ var updateXMLOnce = _.once(updateXML);
 var decompileMBIN = (__files, file, fileKey, fileLen, multiThreaded=false)=>{
   var checkNextCallArg = ()=>{
     if ((compilable + uncompilable) >= FILES.length || fileKey === fileLen - 1) {
+      if (argv.decompileOnly || argv.d) {
+        return;
+      }
       xmlFiles = _.uniq(xmlFiles);
 
       console.log('Please wait...');
@@ -314,7 +321,7 @@ var decompileMBIN = (__files, file, fileKey, fileLen, multiThreaded=false)=>{
   };
   var _next = _.once(next);
   var iterated = false;
-  exc(`.\\bin\\MBINCompiler1300.exe ${file} ${file.split('.MBIN')[0]}.EXML`).then(result => {
+  exc(`.\\bin\\MBINCompiler1200.exe ${file} ${file.split('.MBIN')[0]}.EXML`).then(result => {
     try {
       var xmlPath = result.split('XML data written to "')[1].split('"')[0];
       var refPath = _.findIndex(xmlFiles, xmlPath);
@@ -322,7 +329,7 @@ var decompileMBIN = (__files, file, fileKey, fileLen, multiThreaded=false)=>{
         iterated = true;
         xmlFiles.push(xmlPath);
         ++compilable;
-        ++mbin1300;
+        ++mbin1200;
         console.log(`Decompiled MBIN (${compilable + uncompilable}/${fileLen}): ${file}`);
       }
     } catch (e) {}
@@ -406,7 +413,7 @@ var decompileMBIN = (__files, file, fileKey, fileLen, multiThreaded=false)=>{
  
 var decompileMBINs = (__files)=>{
   var fileLen = __files.length;
-  if (argv.mt) {
+  if (argv.mt || argv.m) {
     _.each(__files, (file, fileKey)=>{
       decompileMBIN(__files, file, fileKey, fileLen, true);
     });
@@ -492,10 +499,12 @@ var deleteCache = ()=>{
  
 if (argv.h || argv.help) {
   console.log('Available commands');
-  console.log('--mt               Enable multi-threading of MBINCompiler');
-  console.log('--xml              Skip decompilation and update existing XML files');
-  console.log('-h, --help         Display this message');
-} else if (argv.xml) {
+  console.log('-m, --mt               Enable multi-threading of MBINCompiler');
+  console.log('-d, --decompileOnly    Only decompile MBIN files.');
+  console.log('-x, --xml              Skip decompilation and update existing XML files');
+  console.log('--name                 Specify the name of the output PAK file.');
+  console.log('-h, --help             Display this message');
+} else if (argv.xml || argv.x) {
   startWalkOnce(0, '.exml');
 } else {
   deleteCache();
