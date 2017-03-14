@@ -22,8 +22,11 @@ It will then apply the settings you specify inside its parent block provided the
 
 #### Available options
 
-  * -m, --mt - Enable multi-threading of MBINCompiler.
-  * -d, --decompileOnly - Only decompile MBIN files.
-  * -x, --xml - Skip decompilation and update existing XML files.
-  * --name - Specify the name of the output PAK file.
+  * -m, --mt - Enable multi-threading of MBINCompiler
+  * -d, --decompileOnly - Only decompile MBIN files
+  * -x, --xml - Skip decompilation and update existing XML files
+  * -f, --force - Force compiling of present EXML files
+  * --merge - Deep merge two conflicting XML objects for mod concatenation
+  * --old - Use older versions of MBINCompiler if the newest can\'t compile a file
+  * --name - Specify the name of the output PAK file
   * -h, --help - Display this information
