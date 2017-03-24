@@ -1,3 +1,9 @@
+#### 1.3.1
+
+  * All files inside a pak file are now listed as they are being extracted, so conflicting mods can be investigated more easily.
+  * Added coloring for console messages for easier legibility.
+  * Updated to the latest MBINCompiler via Discord.
+
 #### 1.3.0
 
   * Added new option merge: Merge allows you to compile conflicting PAK by merging their XML files into a single file. This could allow two conflicting mods to work together if they use the same file, but modify different parts of it.

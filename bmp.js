@@ -6,6 +6,7 @@ var argv = require('yargs').argv;
 var parseString = require('xml2js').parseString;
 var xml2js = require('xml2js');
 var _ = require('lodash');
+var chalk = require('chalk');
 
 var exc = (cmd)=>{
   return new Promise((resolve, reject)=>{
@@ -129,19 +130,19 @@ var buildMODPak = (_completedFiles)=>{
   });
   fs.writeFile('./files.txt', fileText, {flag : 'w'}, (err, data)=>{
     if (err) {
-      console.log('Error writing to files.txt');
+      console.log(chalk.red.bold('Error writing to files.txt'));
     }
     setTimeout(()=>{
       var successMsg = `Patching completed. ${changes} keys changed across ${_completedFiles.length} files.`;
       exc(`.\\bin\\psarc.exe create -a -y --zlib --inputfile=./files.txt -o _MOD.BMP_${argv.name ? argv.name : Date.now()}.pak`).then(result => {
         finish = true;
-        console.log(successMsg);
+        console.log(chalk.green.bold(successMsg));
         if (!argv.xml && !argv.x) {
-          console.log(`MBINCompiler stats: ${compilable} succeeded, ${uncompilable} failed`);
-          console.log(`MBINCompiler1200.exe: ${mbin1200}`);
-          console.log(`MBINCompiler1131.exe: ${mbin1131}`);
-          console.log(`MBINCompiler1130.exe: ${mbin1130}`);
-          console.log(`MBINCompilerFallback.exe: ${mbinLegacy}`);
+          console.log(chalk.green.bold(`MBINCompiler stats: ${compilable} succeeded, ${uncompilable} failed`));
+          console.log(chalk.green.bold(`MBINCompiler1200.exe: ${mbin1200}`));
+          console.log(chalk.yellow.bold(`MBINCompiler1131.exe: ${mbin1131}`));
+          console.log(chalk.yellow.bold(`MBINCompiler1130.exe: ${mbin1130}`));
+          console.log(chalk.yellow.bold(`MBINCompilerFallback.exe: ${mbinLegacy}`));
         }
       }).catch((e)=>{
         if (!finish) {
@@ -176,11 +177,11 @@ var handleCompleted = (builder, _completedFiles, file, k)=>{
     if (err) console.log('ERR-B: ', err);
     var mbinFileName = file.mbin;
     exc(`.\\bin\\MBINCompiler1200.exe ${file.xml} ${mbinFileName}`).then(result => {
-      console.log('Writing new MBIN: ', `${mbinFileName}`);
+      console.log(chalk.white('Writing new MBIN: ', `${mbinFileName}`));
       checkNextCallArg();
     }).catch((e)=>{
       if (!argv.old) {
-        console.log(`Unable to recompile: ${mbinFileName}}`);
+        console.log(chalk.red.bold(`Unable to recompile: ${mbinFileName}}`));
         _.pullAt(_completedFiles, k);
         checkNextCallArg();
         return;
@@ -190,16 +191,16 @@ var handleCompleted = (builder, _completedFiles, file, k)=>{
         checkNextCallArg();
       }).catch((e)=>{
         exc(`.\\bin\\MBINCompiler1130.exe ${file.xml} ${mbinFileName}`).then(result => {
-          console.log(`Writing new MBIN using fallback (1130): ${mbinFileName}`);
+          console.log(chalk.yellow.bold(`Writing new MBIN using fallback (1130): ${mbinFileName}`));
           checkNextCallArg();
         }).catch((e)=>{
           exc(`.\\bin\\MBINCompilerFallback.exe ${file.xml} ${mbinFileName}`).then(result => {
-            console.log(`Writing new MBIN using fallback (legacy): ${mbinFileName}`);
+            console.log(chalk.yellow.bold(`Writing new MBIN using fallback (legacy): ${mbinFileName}`));
             checkNextCallArg();
           }).catch(()=>{
             _.pullAt(_completedFiles, k);
             checkNextCallArg();
-            console.log(`Unable to recompile: ${mbinFileName}}`);
+            console.log(chalk.red.bold(`Unable to recompile: ${mbinFileName}}`));
           });
         });
       });
@@ -212,9 +213,9 @@ var writeOutXML = (result)=>{
 
   if (_completedFiles.length === 0) {
     if (!argv.f && !argv.force && !argv.merge) {
-      console.log('No XML changes detected.');
+      console.log(chalk.red.bold('No XML changes detected.'));
     } else {
-      console.log('Skipping Setting.ini, recompiling all indexed EXMLs.');
+      console.log(chalk.yellow.bold('Skipping Setting.ini, recompiling all indexed EXMLs.'));
     }
   }
 
@@ -280,7 +281,11 @@ var eachRecursive = (result, obj, recursion=0, setting, settingKey, settings, xm
                 } else {
                   try {
                     if (object[key].name === prop.key && (settingId[0] === '*' || settingId[0] === template)) {
-                      object[key].value = prop.val;
+                      let propVal = prop.val.indexOf('*') !== -1 ? (parseFloat(object[key].value) * parseFloat(prop.val.split('*')[1])).toString() : prop.val;
+                      propVal = prop.val.indexOf('+') !== -1 ? (parseFloat(object[key].value) + parseFloat(prop.val.split('+')[1])).toString() : propVal;
+                      propVal = prop.val.indexOf('-') !== -1 ? (parseFloat(object[key].value) + parseFloat(prop.val.split('-')[1])).toString() : propVal;
+                      propVal = prop.val.indexOf('/') !== -1 ? (parseFloat(object[key].value) / parseFloat(prop.val.split('/')[1])).toString() : propVal;
+                      object[key].value = propVal;
                       changed = true;
                       completedFiles.push({
                         mbin: `${xmlPath.split('.exml')[0]}.MBIN`,
@@ -318,7 +323,7 @@ var eachRecursive = (result, obj, recursion=0, setting, settingKey, settings, xm
 
 var mergeDuplicateXMLObjects = (xml)=>{
   _.each(duplicateXMLObjects, (dupe)=>{
-    _.assignIn(xml, dupe);
+    _.assignIn(_.cloneDeep(xml), _.cloneDeep(dupe));
   });
   duplicateXMLObjects = [];
   return xml;
@@ -330,12 +335,12 @@ var updateXML = ()=>{
     let lastIter = xmlKey === xmlFilesLen - 1;
     fs.readFile(xmlPath, 'utf-8', (err, data)=>{
       if (err) {
-        console.log(err)
+        console.log(chalk.red.bold(err))
         return;
       }
       parseString(data, (err, result)=>{
         if (err) {
-          console.log(err)
+          console.log(chalk.red.bold(err))
           return;
         }
         let isOriginal = null;
@@ -356,7 +361,7 @@ var updateXML = ()=>{
           });
           if (isOriginal) {
             result = mergeDuplicateXMLObjects(result);
-            console.log(`Merged XML object: ${xmlPath}`);
+            console.log(chalk.yellow.bold(`Merged XML object: ${xmlPath}`));
           }
         }
         if (settings.length === 0 && (argv.f || argv.force || argv.merge)) {
@@ -417,7 +422,7 @@ var decompileMBIN = (__files, file, fileKey, fileLen, multiThreaded=false)=>{
         xmlFiles.push(xmlPath);
         ++compilable;
         ++mbin1200;
-        console.log(`Decompiled MBIN (${compilable + uncompilable}/${fileLen}): ${file}`);
+        console.log(chalk.white(`Decompiled MBIN (${compilable + uncompilable}/${fileLen}): ${file}`));
       }
     } catch (e) {}
     if (multiThreaded) {
@@ -439,7 +444,7 @@ var decompileMBIN = (__files, file, fileKey, fileLen, multiThreaded=false)=>{
           xmlFiles.push(xmlPath);
           ++compilable;
           ++mbin1131;
-          console.log(`Decompiled MBIN using fallback (1131) (${compilable + uncompilable}/${fileLen}): ${file}`);
+          console.log(chalk.yellow.bold(`Decompiled MBIN using fallback (1131) (${compilable + uncompilable}/${fileLen}): ${file}`));
         }
       } catch (e) {}
       if (multiThreaded) {
@@ -461,7 +466,7 @@ var decompileMBIN = (__files, file, fileKey, fileLen, multiThreaded=false)=>{
               xmlFiles.push(xmlPath);
               ++compilable;
               ++mbin1130
-              console.log(`Decompiled MBIN using fallback (1130) (${compilable + uncompilable}/${fileLen}): ${file}`);
+              console.log(chalk.yellow.bold(`Decompiled MBIN using fallback (1130) (${compilable + uncompilable}/${fileLen}): ${file}`));
             }
           } catch (e) {}
         }
@@ -480,7 +485,7 @@ var decompileMBIN = (__files, file, fileKey, fileLen, multiThreaded=false)=>{
                 xmlFiles.push(xmlPath);
                 ++compilable;
                 ++mbinLegacy;
-                console.log(`Decompiled MBIN using fallback (legacy) (${compilable + uncompilable}/${fileLen}): ${file}`);
+                console.log(chalk.yellow.bold(`Decompiled MBIN using fallback (legacy) (${compilable + uncompilable}/${fileLen}): ${file}`));
               }
             } catch (e) {}
           }
@@ -489,7 +494,7 @@ var decompileMBIN = (__files, file, fileKey, fileLen, multiThreaded=false)=>{
             checkNextCallArg();
           }
         }).catch(()=>{
-          console.log(`Unable to decompile MBIN (${compilable + uncompilable}/${fileLen}): ${file}`);
+          console.log(chalk.red.bold(`Unable to decompile MBIN (${compilable + uncompilable}/${fileLen}): ${file}`));
           ++uncompilable;
           if (!iterated) {
             _next();
@@ -528,9 +533,16 @@ var startWalk = (delay, ext)=>{
         return result.indexOf(ext) !== -1 && result.indexOf('duplicate') === -1;
       });
       FILES = _.filter(FILES, (result)=>{
-        return result.indexOf('.DDS') === -1 && result.indexOf('.BIN') === -1
+        return result.indexOf('.DDS') === -1 && result.indexOf('.BIN') === -1;
       });
       FILES = FILES.concat(dupes);
+
+      if (argv.xml) {
+        FILES = _.filter(FILES, (file)=>{
+          file = file.toLowerCase();
+          return file.indexOf('.exml') !== -1 && file.indexOf('.mbin') === -1;
+        });
+      }
 
       _.each(results, (result)=>{
         if (result.indexOf('.DDS') !== -1 || result.indexOf('.BIN') !== -1) {
@@ -573,11 +585,12 @@ var execPsarc = (args, subDir, pakKey, pakFile, subDirLen)=>{
     _.each(output, (file, key)=>{
       let name = output[key].split(' (')[0];
       if (listedFiles.indexOf(name) === -1) {
+        console.log(chalk.white(`--> ${subDir[pakKey]}: ${name}`))
         listedFiles.push(name);
         return;
       } else {
         isDupe = true;
-        console.log(`Duplicate MBINs found - ${name} from ${subDir[pakKey]}. Use --force to continue, or --merge to reconcile changes.`);
+        console.log(chalk.red.bold(`/!\\ Duplicate MBIN found: ${name} from ${subDir[pakKey]}. Use --force to continue, or --merge to reconcile changes.`));
         return;
       }
     });
@@ -588,18 +601,18 @@ var execPsarc = (args, subDir, pakKey, pakFile, subDirLen)=>{
       nextArg = `.\\bin\\psarc.exe extract -y --input=${subDir[pakKey]} --to=./`;
     }
     exc(args).then(result => {
-      console.log(`Extracting: (${pakKey+1}/${subDir.length}) ${pakFile}`);
+      console.log(chalk.white.bold.underline(`Extracting: (${pakKey+1}/${subDir.length}) ${pakFile}`));
       ++pakKey;
       execPsarc(nextArg, subDir, pakKey, subDir[pakKey], subDirLen);
     }).catch((e)=>{
-      console.log(e)
+      //console.log(e)
     });
   }).catch((e)=>{
     if (pakFile.indexOf(' ') !== -1) {
-      console.log(`PAK file names shouldn't contain spaces. Offending file: ${pakFile}`);
+      console.log(chalk.red.bold(`PAK file names shouldn't contain spaces. Offending file: ${pakFile}`));
       return;
     }
-    console.log(typeof pakFile !== 'undefined' ? `Skipping ${pakFile}...` : '');
+    console.log(typeof pakFile !== 'undefined' ? chalk.yellow.bold(`Skipping ${pakFile}...`) : '');
     execPsarc(nextArg, subDir, pakKey, subDir[pakKey], subDirLen);
   });
 };
@@ -641,7 +654,7 @@ var deleteCache = ()=>{
 };
 
 if (argv.h || argv.help) {
-  console.log('Available commands');
+  console.log(chalk.underline('Available commands'));
   console.log('-m, --mt               Enable multi-threading of MBINCompiler');
   console.log('-d, --decompileOnly    Only decompile MBIN files');
   console.log('-x, --xml              Skip decompilation and update existing XML files');

@@ -14,9 +14,15 @@ Special thanks to monkeyman192, theFisher86, and those helping them for making t
 
 The config file is Settings.ini. Inside the brackets [], the script will search the decompiled MBIN XML files for a Filename property.
 
-The format:
+Specific format:
 [TemplateName:PropertyToTarget]
 ChildPropertyName=ChildPropertyValue
+
+Wildcard format:
+[*:PropertyToTarget|Template]
+ChildPropertyName=ChildPropertyValue
+
+The "wildcard" format will target all templates, or properties inside the specified template.
 
 It will then apply the settings you specify inside its parent block provided the keys preceding the "=" exist.
 
